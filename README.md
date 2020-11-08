@@ -22,7 +22,7 @@ I [found](http://domoticx.com/p1-poort-slimme-meter-uitlezen-hardware/) the foll
 
 Picture of the setup:
 
-<img src="setup.jpg" alt="drawing" width="200"/>
+<img src="setup.jpg" alt="drawing" width="400"/>
 
 ## Links
 
