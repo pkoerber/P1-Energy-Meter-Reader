@@ -370,12 +370,12 @@ void loop() {
         uptimeEpoch++;
       }
       lastUpdateTime=currentTime;
-      // reset current data
-      currentData=EnergyData();
-      readTelegram(currentData, 5000, false);
-      bool currentValid=currentData.isValid();
-      DEBUG_OUT(2, "Telegram valid: %s\n", currentValid?"true":"false");
-      if(!currentValid) return;
+      EnergyData newData=EnergyData();
+      readTelegram(newData, 5000, false);
+      bool newValid=newData.isValid();
+      DEBUG_OUT(2, "Telegram valid: %s\n", newValid?"true":"false");
+      if(!newValid) return;
+      currentData=newData;
       if(referenceData.isValid(true)) {
         // If we started a new day, previous data becomes the new reference
         DEBUG_OUT(2, "Valid referenceData\n");
