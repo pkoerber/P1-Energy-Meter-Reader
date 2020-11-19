@@ -423,21 +423,24 @@ void loop() {
 
         // Check whether we have a new gas measurement
 
-        time_t prevTime=mktime(&previousData.gasTimestamp);
-        time_t currTime=mktime(&currentData.gasTimestamp);
+        if(currentData.validGasTimestamp&&currentData.gasConsumption>=0.0) {
+          time_t prevTime=mktime(&previousData.gasTimestamp);
+          time_t currTime=mktime(&currentData.gasTimestamp);
     
-        DEBUG_OUT(2, "Gas timestamp previous, valid: %s, %s", previousData.validGasTimestamp?"true":"false", asctime(&previousData.gasTimestamp)); 
-        DEBUG_OUT(2, "Gas timestamp current: %s", asctime(&currentData.gasTimestamp)); 
+          DEBUG_OUT(2, "Gas timestamp previous, valid: %s, %s", previousData.validGasTimestamp?"true":"false", asctime(&previousData.gasTimestamp)); 
+          DEBUG_OUT(2, "Gas timestamp current: %s", asctime(&currentData.gasTimestamp)); 
     
-        if(!previousData.validGasTimestamp||currTime>prevTime) {
-          DEBUG_OUT(2, "New gas measurement, timestamp:%s\n", asctime(&currentData.gasTimestamp));
-          char gasData[30];
-          sprintf(gasData,
-          "[{\"delta_t\":\"0\","
-          "\"field7\":\"%.4f\"}]",
-          currentData.gasConsumption-referenceData.gasConsumption);
-          sendData(gasData, thingspeak_addr, APIKEY_THINGSPEAK, PORT_THINGSPEAK, URL_THINGSPEAK);
+          if(!previousData.validGasTimestamp||currTime>prevTime) {
+            DEBUG_OUT(2, "New gas measurement, timestamp:%s\n", asctime(&currentData.gasTimestamp));
+            char gasData[30];
+            sprintf(gasData,
+            "[{\"delta_t\":\"0\","
+            "\"field5\":\"%.4f\"}]",
+            currentData.gasConsumption-referenceData.gasConsumption);
+            sendData(gasData, thingspeak_addr, APIKEY_THINGSPEAK2, PORT_THINGSPEAK, URL_THINGSPEAK2);
+          }
         }
+
 
       } else {
         // There is no beginning of the day reference yet, current data becomes the reference, this happens at startup
