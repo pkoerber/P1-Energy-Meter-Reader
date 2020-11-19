@@ -435,13 +435,11 @@ void loop() {
             char gasData[30];
             sprintf(gasData,
             "[{\"delta_t\":\"0\","
-            "\"field5\":\"%.4f\"}]",
+            "\"field7\":\"%.4f\"}]",
             currentData.gasConsumption-referenceData.gasConsumption);
-            sendData(gasData, thingspeak_addr, APIKEY_THINGSPEAK2, PORT_THINGSPEAK, URL_THINGSPEAK2);
-          }
+            sendData(gasData, thingspeak_addr, APIKEY_THINGSPEAK, PORT_THINGSPEAK, URL_THINGSPEAK);
+           }
         }
-
-
       } else {
         // There is no beginning of the day reference yet, current data becomes the reference, this happens at startup
         DEBUG_OUT(2, "Invalid referenceData, initialize with currentData\n");
