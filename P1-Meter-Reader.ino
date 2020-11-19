@@ -636,7 +636,7 @@ void serveHtmlPage() {
   timestampStr, currentData.isPeak?"peak":"off peak",
   currentData.peakConsumption>=0.0?currentData.peakConsumption-referenceData.peakConsumption:-1.0, currentData.offPeakConsumption>=0.0?currentData.offPeakConsumption-referenceData.offPeakConsumption:-1.0,
   currentData.peakInjection>=0.0?currentData.peakInjection-referenceData.peakInjection:-1.0, currentData.offPeakInjection>=0.0?currentData.offPeakInjection-referenceData.offPeakInjection:-1.0,
-  totalSolarEtoday, currentData.currentConsumption>=0.0?currentData.currentConsumption*1000.0:-1.0, currentData.currentInjection>=0.0?currentData.currentInjection*1000.0:-1.0, totalSolarPower,
+  currentData.currentConsumption>=0.0?currentData.currentConsumption*1000.0:-1.0, currentData.currentInjection>=0.0?currentData.currentInjection*1000.0:-1.0, 
   consumption15,
   gasTimestampStr, currentData.gasConsumption>=0.0?currentData.gasConsumption-referenceData.gasConsumption:-1.0,
   currentData.phase1Voltage, currentData.phase2Voltage, currentData.phase3Voltage,
