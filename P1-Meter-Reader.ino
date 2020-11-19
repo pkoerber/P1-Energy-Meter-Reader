@@ -49,6 +49,9 @@ char dataline[MAXLINELENGTH];
 #define HOST_THINGSPEAK "api.thingspeak.com"
 #define PORT_THINGSPEAK 80
 
+// For valid telegram, whether to check gas reading and phase current/voltages
+#define CHECK_GAS true
+#define CHECK_PHASE_INFO false
 
 struct EnergyDataSmall: public Printable {
 
@@ -102,7 +105,7 @@ struct EnergyDataSmall: public Printable {
         if(dataFile.available()) readValueFromFile(dataFile, dataline, "%lf", &peakInjection);
         if(dataFile.available()) readValueFromFile(dataFile, dataline, "%lf", &offPeakInjection);
         if(dataFile.available()) readValueFromFile(dataFile, dataline, "%lf", &gasConsumption);
-        DEBUG_OUT(2, "Reading reference data to SPIFFS, valid: %s\n", isValid(true)?"true":"false");
+        DEBUG_OUT(2, "Reading reference data to SPIFFS, valid: %s\n", isValid(CHECK_GAS)?"true":"false");
       } else {
         DEBUG_OUT(0, "Data file does not exist\n");
       }
@@ -206,7 +209,7 @@ void setup() {
   // Read reference data from SPIFFS
 
   referenceData.readReferenceDataSPIFFS();
-  DEBUG_OUT(2, "Reference data valid: %s\n", referenceData.isValid(true)?"true":"false");
+  DEBUG_OUT(2, "Reference data valid: %s\n", referenceData.isValid(CHECK_GAS)?"true":"false");
 
   // Setup web server
   webServer.on("/", serveHtmlPage);
@@ -370,22 +373,22 @@ void loop() {
         uptimeEpoch++;
       }
       lastUpdateTime=currentTime;
-      // reset current data
-      currentData=EnergyData();
-      readTelegram(currentData, 5000, false);
-      bool currentValid=currentData.isValid();
-      DEBUG_OUT(2, "Telegram valid: %s\n", currentValid?"true":"false");
-      if(!currentValid) return;
-      if(referenceData.isValid(true)) {
+      EnergyData newData=EnergyData();
+      readTelegram(newData, 5000, false);
+      bool newValid=newData.isValid(CHECK_GAS, CHECK_PHASE_INFO);
+      DEBUG_OUT(2, "Telegram valid: %s\n", newValid?"true":"false");
+      if(!newValid) return;
+      currentData=newData;
+      if(referenceData.isValid(CHECK_GAS)) {
         // If we started a new day, previous data becomes the new reference
         DEBUG_OUT(2, "Valid referenceData\n");
-        if(previousData.isValid(true)&&currentData.timestamp.tm_mday!=previousData.timestamp.tm_mday) {
+        if(previousData.isValid(CHECK_GAS)&&currentData.timestamp.tm_mday!=previousData.timestamp.tm_mday) {
           DEBUG_OUT(1, "New day, updating reference data\n");
           referenceData=previousData;
           referenceData.writeReferenceDataSPIFFS();
         }
 
-        if(previousData.isValid(true)&&currentData.timestamp.tm_min/15!=previousData.timestamp.tm_min/15) {
+        if(previousData.isValid(false)&&currentData.timestamp.tm_min/15!=previousData.timestamp.tm_min/15) {
           DEBUG_OUT(1, "Started new quarter of an hour\n");
           referenceData15=previousData;
         }
@@ -630,11 +633,11 @@ void serveHtmlPage() {
   DEBUG_OUT(2, "Creating webpage: %s\n", pageContent?"true":"false");
   sprintf_P(pageContent, htmlTemplate, 
   timestampStr, currentData.isPeak?"peak":"off peak",
-  currentData.peakConsumption-referenceData.peakConsumption, currentData.offPeakConsumption-referenceData.offPeakConsumption,
-  currentData.peakInjection-referenceData.peakInjection, currentData.offPeakInjection-referenceData.offPeakInjection,
-  currentData.currentConsumption*1000.0, currentData.currentInjection*1000.0,
+  currentData.peakConsumption>=0.0?currentData.peakConsumption-referenceData.peakConsumption:-1.0, currentData.offPeakConsumption>=0.0?currentData.offPeakConsumption-referenceData.offPeakConsumption:-1.0,
+  currentData.peakInjection>=0.0?currentData.peakInjection-referenceData.peakInjection:-1.0, currentData.offPeakInjection>=0.0?currentData.offPeakInjection-referenceData.offPeakInjection:-1.0,
+  totalSolarEtoday, currentData.currentConsumption>=0.0?currentData.currentConsumption*1000.0:-1.0, currentData.currentInjection>=0.0?currentData.currentInjection*1000.0:-1.0, totalSolarPower,
   consumption15,
-  gasTimestampStr, currentData.gasConsumption-referenceData.gasConsumption,
+  gasTimestampStr, currentData.gasConsumption>=0.0?currentData.gasConsumption-referenceData.gasConsumption:-1.0,
   currentData.phase1Voltage, currentData.phase2Voltage, currentData.phase3Voltage,
   currentData.phase1Current, currentData.phase2Current, currentData.phase3Current,
   currentData.peakConsumption, currentData.offPeakConsumption,
