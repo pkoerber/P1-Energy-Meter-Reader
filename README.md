@@ -16,13 +16,13 @@ For some older meters the baud rate is 9600 instead of 115200. Other meters can 
 
 ## Electronic circuit
 
-I [found](http://domoticx.com/p1-poort-slimme-meter-uitlezen-hardware/) the following circuit. The output on the right is to be connected to the RX port of the esp8266. 
+I based the circuit on one I found on [this page](http://domoticx.com/p1-poort-slimme-meter-uitlezen-hardware/).  
 
-![](http://domoticx.com/wp-content/uploads/2018/01/Aansluitschema-P1-BC547.png)
+<img src="P1readercircuit.png" alt="drawing electronic circuit" width="400"/>
 
 Picture of the setup:
 
-<img src="setup.jpg" alt="drawing" width="400"/>
+<img src="setup.jpg" alt="picture electronic circuit" width="400"/>
 
 ## Links
 
