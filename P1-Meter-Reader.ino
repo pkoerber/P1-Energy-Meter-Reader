@@ -339,8 +339,9 @@ bool readTelegram(EnergyData& result, unsigned int timeOut, bool checkCRC) {
         handleMeterTag(dataline, "1-0:51.7.0", result.phase2Current);
         handleMeterTag(dataline, "1-0:71.7.0", result.phase3Current);
         
-        handleDateValue(dataline, "0-1:24.2.3", result.gasTimestamp, result.validGasTimestamp);
-        handleMeterTag(dataline, "0-1:24.2.3", result.gasConsumption);
+        // Gas tag is 0-1:24.2.1 for some meters and 0-1:24.2.3 for others
+        handleDateValue(dataline, "0-1:24.2", result.gasTimestamp, result.validGasTimestamp);
+        handleMeterTag(dataline, "0-1:24.2", result.gasConsumption);
       }
     }
     delay(500);
