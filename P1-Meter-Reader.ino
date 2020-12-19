@@ -33,6 +33,7 @@
 
 // Number of failed Wifi connections that lead to a reset
 #define FAILED_WIFI_RESET 10
+#define FAILED_METER_CONNECT_RESET 15
 
 // The values below should be filled in if using a static IP
 
@@ -194,8 +195,11 @@ unsigned long lastSendTime=0;
 
 unsigned long uptimeEpoch=0;
 
-int failedWifi=0;
-int failedWifiConsecutive=0;
+unsigned int failedWifi=0;
+unsigned int failedWifiConsecutive=0;
+
+unsigned int failedMeterConnect=0;
+unsigned int failedMeterConnectConsecutive=0;
  
 void setup() {
   //Serial Port begin
@@ -378,76 +382,81 @@ void loop() {
       readTelegram(newData, 5000, false);
       bool newValid=newData.isValid(CHECK_GAS, CHECK_PHASE_INFO);
       DEBUG_OUT(2, "Telegram valid: %s\n", newValid?"true":"false");
-      if(!newValid) return;
-      currentData=newData;
-      if(referenceData.isValid(CHECK_GAS)) {
-        // If we started a new day, previous data becomes the new reference
-        DEBUG_OUT(2, "Valid referenceData\n");
-        if(previousData.isValid(CHECK_GAS)&&currentData.timestamp.tm_mday!=previousData.timestamp.tm_mday) {
-          DEBUG_OUT(1, "New day, updating reference data\n");
-          referenceData=previousData;
+      if(newValid) {
+        failedMeterConnectConsecutive=0;
+        currentData=newData;
+        if(referenceData.isValid(CHECK_GAS)) {
+          // If we started a new day, previous data becomes the new reference
+          DEBUG_OUT(2, "Valid referenceData\n");
+          if(previousData.isValid(CHECK_GAS)&&currentData.timestamp.tm_mday!=previousData.timestamp.tm_mday) {
+            DEBUG_OUT(1, "New day, updating reference data\n");
+            referenceData=previousData;
+            referenceData.writeReferenceDataSPIFFS();
+          }
+  
+          if(previousData.isValid(false)&&currentData.timestamp.tm_min/15!=previousData.timestamp.tm_min/15) {
+            DEBUG_OUT(1, "Started new quarter of an hour\n");
+            referenceData15=previousData;
+          }
+  
+          if(currentTime-lastSendTime>SEND_INTERVAL) {
+            lastSendTime=currentTime;
+            webServer.handleClient();
+            yield();
+         
+            // Write values to Thingspeak
+            if(WiFi.hostByName(HOST_THINGSPEAK, thingspeak_addr)) {
+              DEBUG_OUT(2, "Thingspeak IP: %s\n", thingspeak_addr.toString().c_str()) ; 
+            } else {
+              DEBUG_OUT(1, "Cannot resolve thingspeak host: %s\n", HOST_THINGSPEAK);
+            }
+  
+            char electricityData[130];
+            sprintf(electricityData,
+            "[{\"delta_t\":\"0\","
+            "\"field1\":\"%.3f\","
+            "\"field2\":\"%.3f\","
+            "\"field3\":\"%.3f\","
+            "\"field4\":\"%.3f\","
+            "\"field5\":\"%.f\","
+            "\"field6\":\"%.f\"}]",
+            currentData.peakConsumption-referenceData.peakConsumption, currentData.offPeakConsumption-referenceData.offPeakConsumption, 
+            currentData.peakInjection-referenceData.peakInjection, currentData.offPeakInjection-referenceData.offPeakInjection,
+            currentData.currentConsumption*1000, currentData.currentInjection*1000);
+            sendData(electricityData, thingspeak_addr, APIKEY_THINGSPEAK, PORT_THINGSPEAK, URL_THINGSPEAK);
+  
+          }
+  
+          // Check whether we have a new gas measurement
+  
+          if(currentData.validGasTimestamp&&currentData.gasConsumption>=0.0) {
+            time_t prevTime=mktime(&previousData.gasTimestamp);
+            time_t currTime=mktime(&currentData.gasTimestamp);
+      
+            DEBUG_OUT(2, "Gas timestamp previous, valid: %s, %s", previousData.validGasTimestamp?"true":"false", asctime(&previousData.gasTimestamp)); 
+            DEBUG_OUT(2, "Gas timestamp current: %s", asctime(&currentData.gasTimestamp)); 
+      
+            if(!previousData.validGasTimestamp||currTime>prevTime) {
+              DEBUG_OUT(2, "New gas measurement, timestamp:%s\n", asctime(&currentData.gasTimestamp));
+              char gasData[30];
+              sprintf(gasData,
+              "[{\"delta_t\":\"0\","
+              "\"field7\":\"%.4f\"}]",
+              currentData.gasConsumption-referenceData.gasConsumption);
+              sendData(gasData, thingspeak_addr, APIKEY_THINGSPEAK, PORT_THINGSPEAK, URL_THINGSPEAK);
+             }
+          }
+        } else {
+          // There is no beginning of the day reference yet, current data becomes the reference, this happens at startup
+          DEBUG_OUT(2, "Invalid referenceData, initialize with currentData\n");
+          referenceData=currentData;
           referenceData.writeReferenceDataSPIFFS();
         }
-
-        if(previousData.isValid(false)&&currentData.timestamp.tm_min/15!=previousData.timestamp.tm_min/15) {
-          DEBUG_OUT(1, "Started new quarter of an hour\n");
-          referenceData15=previousData;
-        }
-
-        if(currentTime-lastSendTime>SEND_INTERVAL) {
-          lastSendTime=currentTime;
-          webServer.handleClient();
-          yield();
-       
-          // Write values to Thingspeak
-          if(WiFi.hostByName(HOST_THINGSPEAK, thingspeak_addr)) {
-            DEBUG_OUT(2, "Thingspeak IP: %s\n", thingspeak_addr.toString().c_str()) ; 
-          } else {
-            DEBUG_OUT(1, "Cannot resolve thingspeak host: %s\n", HOST_THINGSPEAK);
-          }
-
-          char electricityData[130];
-          sprintf(electricityData,
-          "[{\"delta_t\":\"0\","
-          "\"field1\":\"%.3f\","
-          "\"field2\":\"%.3f\","
-          "\"field3\":\"%.3f\","
-          "\"field4\":\"%.3f\","
-          "\"field5\":\"%.f\","
-          "\"field6\":\"%.f\"}]",
-          currentData.peakConsumption-referenceData.peakConsumption, currentData.offPeakConsumption-referenceData.offPeakConsumption, 
-          currentData.peakInjection-referenceData.peakInjection, currentData.offPeakInjection-referenceData.offPeakInjection,
-          currentData.currentConsumption*1000, currentData.currentInjection*1000);
-          sendData(electricityData, thingspeak_addr, APIKEY_THINGSPEAK, PORT_THINGSPEAK, URL_THINGSPEAK);
-
-        }
-
-        // Check whether we have a new gas measurement
-
-        if(currentData.validGasTimestamp&&currentData.gasConsumption>=0.0) {
-          time_t prevTime=mktime(&previousData.gasTimestamp);
-          time_t currTime=mktime(&currentData.gasTimestamp);
-    
-          DEBUG_OUT(2, "Gas timestamp previous, valid: %s, %s", previousData.validGasTimestamp?"true":"false", asctime(&previousData.gasTimestamp)); 
-          DEBUG_OUT(2, "Gas timestamp current: %s", asctime(&currentData.gasTimestamp)); 
-    
-          if(!previousData.validGasTimestamp||currTime>prevTime) {
-            DEBUG_OUT(2, "New gas measurement, timestamp:%s\n", asctime(&currentData.gasTimestamp));
-            char gasData[30];
-            sprintf(gasData,
-            "[{\"delta_t\":\"0\","
-            "\"field7\":\"%.4f\"}]",
-            currentData.gasConsumption-referenceData.gasConsumption);
-            sendData(gasData, thingspeak_addr, APIKEY_THINGSPEAK, PORT_THINGSPEAK, URL_THINGSPEAK);
-           }
-        }
+        previousData=currentData;
       } else {
-        // There is no beginning of the day reference yet, current data becomes the reference, this happens at startup
-        DEBUG_OUT(2, "Invalid referenceData, initialize with currentData\n");
-        referenceData=currentData;
-        referenceData.writeReferenceDataSPIFFS();
+        failedMeterConnect++;
+        failedMeterConnectConsecutive++;
       }
-      previousData=currentData;
   }
   wdt_reset();
   yield();
@@ -455,12 +464,10 @@ void loop() {
   if(WiFi.status()!=WL_CONNECTED) { // Lost connection
     failedWifi++;
     failedWifiConsecutive++;
-    if(connectWifi(false)!=WL_CONNECTED) { // Reconnect if connection lost
-      if(failedWifiConsecutive>FAILED_WIFI_RESET) {
-        // Failed to connect too many times, ry restarting
-        ESP.restart();
-      } 
-    } 
+    connectWifi(false);
+  }
+  if(failedWifiConsecutive>FAILED_WIFI_RESET||failedMeterConnectConsecutive>FAILED_METER_CONNECT_RESET) {
+    ESP.restart();
   }
   if(WiFi.status()==WL_CONNECTED) {
     failedWifiConsecutive=0;
@@ -609,6 +616,7 @@ const char htmlTemplate[] PROGMEM = "<!DOCTYPE html>\n\
 <tr><td colspan='2'>&nbsp;</td></tr>\n\
 <tr><td>Uptime</td><td class='r'>%lud&nbsp;%uh&nbsp;%um&nbsp;%us</td></tr>\n\
 <tr><td>Failed Wifi connection count</td><td class='r'>%u</td></tr>\n\
+<tr><td>Failed meter connection count</td><td class='r'>%u</td></tr>\n\
 </table>\n\
 </body>\n\
 </html>\r\n";
@@ -631,7 +639,7 @@ void serveHtmlPage() {
   unsigned int uptimeMins=static_cast<unsigned int>(static_cast<unsigned long>((maxlong%3600000L+1)/60.0/1000.0*uptimeEpoch+(currentTime%3600000L)/60.0/1000.0)%60);
   unsigned int uptimeSecs=static_cast<unsigned int>(static_cast<unsigned long>((maxlong%60000L+1)/1000.0*uptimeEpoch+(currentTime%60000L)/1000.0)%60);
 
-  char* pageContent=new char[2600];
+  char* pageContent=new char[2700];
   DEBUG_OUT(2, "Creating webpage: %s\n", pageContent?"true":"false");
   sprintf_P(pageContent, htmlTemplate, 
   timestampStr, currentData.isPeak?"peak":"off peak",
@@ -644,7 +652,7 @@ void serveHtmlPage() {
   currentData.phase1Current, currentData.phase2Current, currentData.phase3Current,
   currentData.peakConsumption, currentData.offPeakConsumption,
   currentData.peakInjection, currentData.offPeakInjection,
-  currentData.gasConsumption, uptimeDays, uptimeHours, uptimeMins, uptimeSecs, failedWifi);
+  currentData.gasConsumption, uptimeDays, uptimeHours, uptimeMins, uptimeSecs, failedWifi, failedMeterConnect);
   
   webServer.send(200, FPSTR("text/html; charset=utf-8"), pageContent);
   delete[] pageContent;
