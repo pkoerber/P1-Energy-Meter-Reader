@@ -195,10 +195,11 @@ unsigned long lastSendTime=0;
 
 unsigned long uptimeEpoch=0;
 
-int failedWifi=0;
-int failedWifiConsecutive=0;
+unsigned int failedWifi=0;
+unsigned int failedWifiConsecutive=0;
 
-int failedMeterConnectConsecutive=0;
+unsigned int failedMeterConnect=0;
+unsigned int failedMeterConnectConsecutive=0;
  
 void setup() {
   //Serial Port begin
@@ -453,6 +454,7 @@ void loop() {
         }
         previousData=currentData;
       } else {
+        failedMeterConnect++;
         failedMeterConnectConsecutive++;
       }
   }
@@ -614,6 +616,7 @@ const char htmlTemplate[] PROGMEM = "<!DOCTYPE html>\n\
 <tr><td colspan='2'>&nbsp;</td></tr>\n\
 <tr><td>Uptime</td><td class='r'>%lud&nbsp;%uh&nbsp;%um&nbsp;%us</td></tr>\n\
 <tr><td>Failed Wifi connection count</td><td class='r'>%u</td></tr>\n\
+<tr><td>Failed meter connection count</td><td class='r'>%u</td></tr>\n\
 </table>\n\
 </body>\n\
 </html>\r\n";
@@ -636,7 +639,7 @@ void serveHtmlPage() {
   unsigned int uptimeMins=static_cast<unsigned int>(static_cast<unsigned long>((maxlong%3600000L+1)/60.0/1000.0*uptimeEpoch+(currentTime%3600000L)/60.0/1000.0)%60);
   unsigned int uptimeSecs=static_cast<unsigned int>(static_cast<unsigned long>((maxlong%60000L+1)/1000.0*uptimeEpoch+(currentTime%60000L)/1000.0)%60);
 
-  char* pageContent=new char[2600];
+  char* pageContent=new char[2700];
   DEBUG_OUT(2, "Creating webpage: %s\n", pageContent?"true":"false");
   sprintf_P(pageContent, htmlTemplate, 
   timestampStr, currentData.isPeak?"peak":"off peak",
@@ -649,7 +652,7 @@ void serveHtmlPage() {
   currentData.phase1Current, currentData.phase2Current, currentData.phase3Current,
   currentData.peakConsumption, currentData.offPeakConsumption,
   currentData.peakInjection, currentData.offPeakInjection,
-  currentData.gasConsumption, uptimeDays, uptimeHours, uptimeMins, uptimeSecs, failedWifi);
+  currentData.gasConsumption, uptimeDays, uptimeHours, uptimeMins, uptimeSecs, failedWifi, failedMeterConnect);
   
   webServer.send(200, FPSTR("text/html; charset=utf-8"), pageContent);
   delete[] pageContent;
