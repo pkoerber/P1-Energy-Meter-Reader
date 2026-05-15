@@ -202,10 +202,10 @@ unsigned int failedMeterConnect=0;
 unsigned int failedMeterConnectConsecutive=0;
  
 void setup() {
+  // Buffer size enough to remember one telegram
+  Serial.setRxBufferSize(1500);
   //Serial Port begin
   Serial.begin(115200);
-  // Buffer size enough to remember one telegram
-  Serial.setRxBufferSize(650);
   //Define inputs and outputs
   DEBUG_OUT(2, "Start serial port meter\n");
   connectWifi(true);
